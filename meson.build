@@ -22,7 +22,7 @@ mp11_proj        = subproject('mp11')
 mp11_dep         = mp11_proj.get_variable('mp11_dep')
 
 fmt_proj         = subproject('fmt')
-fmt_dep          = fmt_proj.get_variable('fmt_dep')
+fmt_dep          = fmt_proj.get_variable('fmt_header_only_dep')
 
 concurrency_proj = subproject('cpp-baremetal-concurrency')
 concurrency_dep  = concurrency_proj.get_variable('concurrency_dep')
