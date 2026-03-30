@@ -99,15 +99,3 @@ cib_dep = declare_dependency(
         stdx_dep,
     ],
 )
-
-meson.override_dependency('cib', cib_dep)
-meson.override_dependency('cib_match', cib_match_dep)
-meson.override_dependency('cib_interrupt', cib_interrupt_dep)
-meson.override_dependency('cib_lookup', cib_lookup_dep)
-meson.override_dependency('cib_log', cib_log_dep)
-meson.override_dependency('cib_nexus', cib_nexus_dep)
-meson.override_dependency('cib_msg', cib_msg_dep)
-meson.override_dependency('cib_log_fmt', cib_log_fmt_dep)
-meson.override_dependency('cib_log_binary', cib_log_binary_dep)
-meson.override_dependency('cib_flow', cib_flow_dep)
-meson.override_dependency('cib_seq', cib_seq_dep)
