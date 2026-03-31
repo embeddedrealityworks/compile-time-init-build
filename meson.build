@@ -8,7 +8,6 @@ project(
         'cpp_std=c++23',
         'warning_level=3',
     ],
-    description: 'A header-only C++ library for composing modular firmware at compile-time.',
 )
 
 cib_inc = include_directories('include')
