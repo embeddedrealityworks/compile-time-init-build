@@ -14,20 +14,20 @@ cib_inc = include_directories('include')
 
 # --- Dependencies from subprojects ---
 
-stdx_proj        = subproject('cpp-std-extensions')
-stdx_dep         = stdx_proj.get_variable('stdx_dep')
+stdx_sub        = subproject('cpp-std-extensions')
+stdx_dep         = stdx_sub.get_variable('stdx_dep')
 
-mp11_proj        = subproject('mp11')
-mp11_dep         = mp11_proj.get_variable('mp11_dep')
+mp11_sub        = subproject('mp11')
+mp11_dep         = mp11_sub.get_variable('mp11_dep')
 
-fmt_proj         = subproject('fmt')
-fmt_dep          = fmt_proj.get_variable('fmt_header_only_dep')
+fmt_sub = subproject('fmt', default_options: ['fmt_tests=false'])
+fmt_dep          = fmt_sub.get_variable('fmt_header_only_dep')
 
-concurrency_proj = subproject('cpp-baremetal-concurrency')
-concurrency_dep  = concurrency_proj.get_variable('concurrency_dep')
+concurrency_sub = subproject('cpp-baremetal-concurrency')
+concurrency_dep  = concurrency_sub.get_variable('concurrency_dep')
 
-async_proj       = subproject('cpp-baremetal-senders-and-receivers')
-async_dep        = async_proj.get_variable('async_dep')
+async_sub       = subproject('cpp-baremetal-senders-and-receivers')
+async_dep        = async_sub.get_variable('async_dep')
 
 # --- Sub-library declarations (all header-only) ---
 
