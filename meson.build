@@ -20,7 +20,7 @@ stdx_dep         = stdx_sub.get_variable('stdx_dep')
 mp11_sub        = subproject('mp11')
 mp11_dep         = mp11_sub.get_variable('mp11_dep')
 
-fmt_sub = subproject('fmt', default_options: ['fmt_tests=false'])
+fmt_sub = subproject('fmt', default_options: ['fmt_tests=false', 'fmt_header_only=true'])
 fmt_dep          = fmt_sub.get_variable('fmt_header_only_dep')
 
 concurrency_sub = subproject('cpp-baremetal-concurrency')
