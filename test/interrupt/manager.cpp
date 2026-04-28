@@ -17,10 +17,12 @@ struct flow_1 : std::true_type {};
 struct flow_2 : std::true_type {};
 
 namespace {
-using config_a = interrupt::root<
-    interrupt::irq<"a", 17_irq, 42, interrupt::policies<>, flow_1>>;
-using config_b = interrupt::root<
-    interrupt::irq<"b", 17_irq, 42, interrupt::policies<>, flow_1, flow_2>>;
+using config_a =
+    interrupt::root<interrupt::irq<"a", 17_irq, 42, interrupt::no_field_t,
+                                   interrupt::policies<>, flow_1>>;
+using config_b =
+    interrupt::root<interrupt::irq<"b", 17_irq, 42, interrupt::no_field_t,
+                                   interrupt::policies<>, flow_1, flow_2>>;
 
 using EN_33_0 = groov::field<"33_0", std::uint8_t, 0, 0>;
 using EN_33_1 = groov::field<"33_1", std::uint8_t, 1, 1>;
@@ -39,7 +41,12 @@ using R_ENABLE = groov::reg<"enable", std::uint32_t, 1234, groov::w::replace,
 using R_STATUS = groov::reg<"status", std::uint32_t, 5678, groov::w::replace,
                             ST_33_0, ST_33_1, ST_33_2, ST_33_2_1, ST_33_2_2>;
 
-using G = groov::group<"test", groov::test::bus<"test">, R_ENABLE, R_STATUS>;
+using EN_38 = groov::field<"38", std::uint8_t, 0, 0>;
+using R_ENABLE_38 =
+    groov::reg<"enable38", std::uint32_t, 5678, groov::w::replace, EN_38>;
+
+using G = groov::group<"test", groov::test::bus<"test">, R_ENABLE, R_STATUS,
+                       R_ENABLE_38>;
 } // namespace
 
 TEST_CASE("manager can dump config", "[manager]") {
@@ -48,12 +55,12 @@ TEST_CASE("manager can dump config", "[manager]") {
         interrupt::manager<config_a, test_hal<G>, test_nexus>::config();
     STATIC_CHECK(
         s1 ==
-        "interrupt::root<interrupt::irq<\"a\", 17_irq, 42, interrupt::policies<>, flow_1>>"_cts);
+        R"(interrupt::root<interrupt::irq<"a", 17_irq, 42, interrupt::no_field_t, interrupt::policies<>, flow_1>>)"_cts);
     constexpr auto s2 =
         interrupt::manager<config_b, test_hal<G>, test_nexus>::config();
     STATIC_CHECK(
         s2 ==
-        "interrupt::root<interrupt::irq<\"b\", 17_irq, 42, interrupt::policies<>, flow_1, flow_2>>"_cts);
+        R"(interrupt::root<interrupt::irq<"b", 17_irq, 42, interrupt::no_field_t, interrupt::policies<>, flow_1, flow_2>>)"_cts);
 }
 
 TEST_CASE("run single flow", "[manager]") {
@@ -80,7 +87,12 @@ namespace {
 template <typename Flow> struct alt_flow : Flow {};
 
 struct alt_nexus {
-    template <typename T> constexpr static auto service = flow_t<alt_flow<T>>{};
+    template <typename T>
+    constexpr static auto service_v = flow_t<alt_flow<T>>{};
+
+    template <typename T> constexpr static auto service() {
+        return service_v<T>();
+    }
 };
 } // namespace
 
@@ -102,26 +114,75 @@ struct flow_38 : std::true_type {};
 
 using config_shared = interrupt::root<
     interrupt::shared_irq<
-        "shared_33", 33_irq, 34, interrupt::policies<>,
+        "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
         interrupt::sub_irq<"sub_33_1", en_field_t<"33_1">, st_field_t<"33_1">,
                            interrupt::policies<>, flow_33_1>,
         interrupt::sub_irq<"sub_33_2", en_field_t<"33_2">, st_field_t<"33_2">,
                            interrupt::policies<>, flow_33_2>>,
-    interrupt::irq<"irq_38", 38_irq, 39, interrupt::policies<>, flow_38>>;
+    interrupt::irq<"irq_38", 38_irq, 39, stdx::cts_t<"enable38.38"_cts>,
+                   interrupt::policies<>, flow_38>>;
 } // namespace
 
-TEST_CASE("init enables mcu interrupts", "[manager]") {
+TEST_CASE("init does top-level hal init first", "[manager]") {
+    calls.clear();
+
     auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
-    inited = false;
+    m.init();
+
+    REQUIRE(not calls.empty());
+    CHECK(calls[0] == call::init);
+}
+
+TEST_CASE("init enables mcu interrupts second", "[manager]") {
+    calls.clear();
+
+    auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
+    m.init();
+
+    REQUIRE(calls.size() >= 3);
+    CHECK(calls[1] == call::irq_init);
+    CHECK(calls[2] == call::irq_init);
+}
+
+TEST_CASE("init enables dynamic interrupts third", "[manager]") {
+    calls.clear();
+
+    auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
+    m.init();
+
+    REQUIRE(calls.size() >= 4);
+    CHECK(calls[3] == call::write);
+}
+
+TEST_CASE("init does not re-enable top-level interrupts by default",
+          "[manager]") {
+    calls.clear();
+
+    auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
+    m.init();
+    REQUIRE(calls.size() == 4); // only the 33 register was written
+}
+
+TEST_CASE("init can re-enable top-level dynamic interrupts", "[manager]") {
+    calls.clear();
+
+    auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
+    m.init<true>();
+    REQUIRE(calls.size() == 5);
+    CHECK(calls[3] == call::write);
+    CHECK(calls[4] == call::write); // 33 and 38 registers were written
+}
+
+TEST_CASE("init enables mcu interrupts", "[manager]") {
     enabled<33_irq> = false;
     priority<33_irq> = 0;
     enabled<38_irq> = false;
     priority<38_irq> = 0;
 
+    auto m = interrupt::manager<config_shared, test_hal<G>, test_nexus>{};
     m.init();
-    CHECK(38_irq == m.max_irq());
 
-    CHECK(inited);
+    CHECK(38_irq == m.max_irq());
     CHECK(enabled<33_irq>);
     CHECK(priority<33_irq> == 34);
     CHECK(enabled<38_irq>);
@@ -182,7 +243,7 @@ TEST_CASE("init enables mcu interrupt if any flow is active", "[manager]") {
     groov::test::reset_store<G>();
 
     using config_t = interrupt::root<interrupt::shared_irq<
-        "shared_33", 33_irq, 34, interrupt::policies<>,
+        "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
         interrupt::sub_irq<"sub_33_0", en_field_t<"33_0">, st_field_t<"33_0">,
                            interrupt::policies<>, std::true_type>,
         interrupt::sub_irq<"sub_33_1", en_field_t<"33_1">, st_field_t<"33_1">,
@@ -204,7 +265,7 @@ TEST_CASE("init does not enable mcu interrupt if all flows are inactive",
     groov::test::reset_store<G>();
 
     using config_t = interrupt::root<interrupt::shared_irq<
-        "shared_33", 33_irq, 34, interrupt::policies<>,
+        "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
         interrupt::sub_irq<"sub_33_0", en_field_t<"33_0">, st_field_t<"33_0">,
                            interrupt::policies<>, std::false_type>>>;
 
@@ -223,7 +284,7 @@ struct flow_33_2_1 : std::true_type {};
 struct flow_33_2_2 : std::true_type {};
 
 using config_shared_sub = interrupt::root<interrupt::shared_irq<
-    "shared_33", 33_irq, 34, interrupt::policies<>,
+    "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
     interrupt::sub_irq<"sub_33_1", en_field_t<"33_1">, st_field_t<"33_1">,
                        interrupt::policies<>, flow_33_1>,
     interrupt::shared_sub_irq<
@@ -284,11 +345,11 @@ TEST_CASE("shared_sub_irq run is thread-safe", "[manager]") {
 
 namespace {
 using config_shared_no_enable = interrupt::root<interrupt::shared_irq<
-    "shared_33", 33_irq, 34, interrupt::policies<>,
+    "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
     interrupt::sub_irq<"sub_33_1", interrupt::no_field_t, st_field_t<"33_1">,
                        interrupt::policies<>, flow_33_1>>>;
 using config_shared_no_status = interrupt::root<interrupt::shared_irq<
-    "shared_33", 33_irq, 34, interrupt::policies<>,
+    "shared_33", 33_irq, 34, interrupt::no_field_t, interrupt::policies<>,
     interrupt::sub_irq<"sub_33_1", en_field_t<"33_1">, interrupt::no_field_t,
                        interrupt::policies<>, flow_33_1>>>;
 } // namespace

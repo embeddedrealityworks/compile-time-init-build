@@ -24,9 +24,6 @@ struct hal {
     template <bool Enable, irq_num_t IrqNumber, std::size_t Priority>
     static auto irq_init() -> void;
 
-    template <status_policy P>
-    static auto run(irq_num_t, stdx::invocable auto const &isr) -> void;
-
     template <typename Field> static auto get_register() -> Field;
     template <typename Register> using register_datatype_t = int;
     template <typename Register, typename Field> constexpr static auto mask = 0;
@@ -78,7 +75,7 @@ concept sub_irq_interface = base_irq_interface<T>;
 template <typename T, typename Flow>
 concept nexus_for = requires {
     T::template service<Flow>();
-    { T::template service<Flow>.active } -> std::same_as<bool const &>;
+    { T::template service_v<Flow>.active } -> std::same_as<bool const &>;
 };
 
 namespace detail {
@@ -105,9 +102,11 @@ template <typename... Ts> constexpr auto config_string_for() {
 } // namespace detail
 
 struct no_field_t;
+template <typename F>
+constexpr inline auto is_no_field_v = std::same_as<F, no_field_t>;
+template <typename F> using is_no_field = std::bool_constant<is_no_field_v<F>>;
 
-template <typename Field>
-constexpr inline auto is_no_field_v = std::same_as<Field, no_field_t>;
-template <typename Field>
-using is_no_field = std::bool_constant<is_no_field_v<Field>>;
+struct no_register_t {};
+template <typename R>
+constexpr inline auto is_no_register_v = std::same_as<R, no_register_t>;
 } // namespace interrupt

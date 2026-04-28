@@ -14,7 +14,8 @@ namespace {
 using G = groov::group<"test", groov::test::bus<"test">>;
 
 using no_flows_config_t =
-    interrupt::irq<"test", 42_irq, 17, interrupt::policies<>>;
+    interrupt::irq<"test", 42_irq, 17, interrupt::no_field_t,
+                   interrupt::policies<>>;
 } // namespace
 
 TEST_CASE("config models concept", "[irq_impl]") {
@@ -42,44 +43,43 @@ TEST_CASE("config default status policy is clear first", "[irq_impl]") {
 
 TEST_CASE("config status policy can be supplied", "[irq_impl]") {
     using config_t =
-        interrupt::irq<"test", 42_irq, 17,
+        interrupt::irq<"test", 42_irq, 17, interrupt::no_field_t,
                        interrupt::policies<interrupt::clear_status_last>>;
     STATIC_CHECK(std::is_same_v<config_t::status_policy_t,
                                 interrupt::clear_status_last>);
 }
 
 TEST_CASE("impl models concept", "[irq_impl]") {
-    using impl_t = interrupt::irq_impl<no_flows_config_t, test_nexus>;
+    using impl_t = typename no_flows_config_t::built_t<test_nexus>;
     STATIC_CHECK(interrupt::irq_interface<impl_t>);
 }
 
 TEST_CASE("impl can dump config (no flows)", "[irq_impl]") {
     using namespace stdx::literals;
-    using impl_t = interrupt::irq_impl<no_flows_config_t, test_nexus>;
+    using impl_t = typename no_flows_config_t::built_t<test_nexus>;
     constexpr auto s = impl_t::config();
     STATIC_CHECK(
-        s == "interrupt::irq<\"test\", 42_irq, 17, interrupt::policies<>>"_cts);
+        s ==
+        R"(interrupt::irq<"test", 42_irq, 17, interrupt::no_field_t, interrupt::policies<>>)"_cts);
 }
 
 namespace {
 template <typename T>
-using flow_config_t =
-    interrupt::irq<"test", 17_irq, 42, interrupt::policies<>, T>;
+using flow_config_t = interrupt::irq<"test", 17_irq, 42, interrupt::no_field_t,
+                                     interrupt::policies<>, T>;
 } // namespace
 
 TEST_CASE("impl can dump config (some flows)", "[irq_impl]") {
     using namespace stdx::literals;
-    using impl_t =
-        interrupt::irq_impl<flow_config_t<std::true_type>, test_nexus>;
+    using impl_t = typename flow_config_t<std::true_type>::built_t<test_nexus>;
     constexpr auto s = impl_t::config();
     STATIC_CHECK(
         s ==
-        "interrupt::irq<\"test\", 17_irq, 42, interrupt::policies<>, std::integral_constant<bool, true>>"_cts);
+        R"(interrupt::irq<"test", 17_irq, 42, interrupt::no_field_t, interrupt::policies<>, std::integral_constant<bool, true>>)"_cts);
 }
 
 TEST_CASE("impl runs a flow", "[irq_impl]") {
-    using impl_t =
-        interrupt::irq_impl<flow_config_t<std::true_type>, test_nexus>;
+    using impl_t = typename flow_config_t<std::true_type>::built_t<test_nexus>;
     STATIC_CHECK(impl_t::active);
     flow_run<std::true_type> = false;
     impl_t::run<test_hal<G>>();
@@ -87,8 +87,7 @@ TEST_CASE("impl runs a flow", "[irq_impl]") {
 }
 
 TEST_CASE("impl can init its interrupt", "[irq_impl]") {
-    using impl_t =
-        interrupt::irq_impl<flow_config_t<std::true_type>, test_nexus>;
+    using impl_t = typename flow_config_t<std::true_type>::built_t<test_nexus>;
     enabled<17_irq> = false;
     priority<17_irq> = 0;
     impl_t::init<test_hal<G>>();
@@ -97,12 +96,11 @@ TEST_CASE("impl can init its interrupt", "[irq_impl]") {
 }
 
 TEST_CASE("impl is inactive when flow is not active", "[irq_impl]") {
-    using impl_t =
-        interrupt::irq_impl<flow_config_t<std::false_type>, test_nexus>;
+    using impl_t = typename flow_config_t<std::false_type>::built_t<test_nexus>;
     STATIC_CHECK(not impl_t::active);
 }
 
 TEST_CASE("impl is inactive when there are no flows", "[irq_impl]") {
-    using impl_t = interrupt::irq_impl<no_flows_config_t, test_nexus>;
+    using impl_t = typename no_flows_config_t::built_t<test_nexus>;
     STATIC_CHECK(not impl_t::active);
 }
