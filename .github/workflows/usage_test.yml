@@ -12,7 +12,7 @@ on:
 env:
   DEBIAN_FRONTEND: noninteractive
   CMAKE_GENERATOR: Ninja
-  USER_CMAKE_VERSION: 3.25
+  USER_CMAKE_VERSION: 3.27
 
 jobs:
   usage_test:
@@ -35,7 +35,7 @@ jobs:
             toolchain_root: "/usr"
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install compiler
         run: |

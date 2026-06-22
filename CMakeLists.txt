@@ -12,7 +12,7 @@ include(cmake/get_cpm.cmake)
 if(PROJECT_IS_TOP_LEVEL)
     cpmaddpackage("gh:intel/cicd-repo-infrastructure#dev")
 else()
-    cpmaddpackage("gh:intel/cicd-repo-infrastructure#3e2bef0")
+    cpmaddpackage("gh:intel/cicd-repo-infrastructure#6021593")
 endif()
 
 find_package(
@@ -23,7 +23,7 @@ find_package(
 include(cmake/debug_flow.cmake)
 include(cmake/string_catalog.cmake)
 
-add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
+add_versioned_package(URI "gh:boostorg/mp11#boost-1.83.0" TARGET boost_mp11)
 fmt_recipe(12.1.0)
 add_versioned_package("gh:intel/cpp-baremetal-concurrency#536bdd7")
 add_versioned_package("gh:intel/cpp-std-extensions#c932eba")
@@ -34,7 +34,7 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
 endif()
 
 set(GEN_STR_CATALOG
-    ${CMAKE_CURRENT_LIST_DIR}/tools/gen_str_catalog.py
+    ${CMAKE_CURRENT_LIST_DIR}/python/cib/gen_str_catalog.py
     CACHE FILEPATH "Location of script to generate a string catalog")
 
 add_library(cib_match INTERFACE)
@@ -330,7 +330,7 @@ if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
     add_subdirectory(benchmark)
     add_subdirectory(examples)
-    add_subdirectory(tools)
+    add_subdirectory(python)
 
     # Build single-header release.
     include(cmake/single_header.cmake)

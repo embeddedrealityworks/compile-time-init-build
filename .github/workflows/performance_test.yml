@@ -18,13 +18,13 @@ jobs:
   performance_test:
     runs-on: ${{ github.repository_owner == 'intel' && 'intel-' || '' }}ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install build tools
         run: |
-          export DISTRO=$(lsb_release -cs)
+          DISTRO=$(lsb_release -cs)
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          sudo add-apt-repository -y deb https://apt.llvm.org/$DISTRO/ llvm-toolchain-$DISTRO-${{env.DEFAULT_LLVM_VERSION}} main
+          sudo add-apt-repository -y "deb https://apt.llvm.org/$DISTRO/" "llvm-toolchain-$DISTRO-${{env.DEFAULT_LLVM_VERSION}}" main
           sudo apt update && sudo apt install -y ninja-build clang-${{env.DEFAULT_LLVM_VERSION}}
 
       - name: Configure CMake
@@ -34,25 +34,31 @@ jobs:
         run: cmake -B ${{github.workspace}}/build -DCMAKE_CXX_STANDARD=${{env.DEFAULT_CXX_STANDARD}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
-        id: build_step
         shell: bash
         run: |
-          # interesting summary data on stderr
-          cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -t compilation_benchmark 2>&1 | tee ${{github.workspace}}/build/compilation_output.log
-          FRONT_END_TIME=$(grep "Front end" ${{github.workspace}}/build/compilation_output.log | awk '{print $1}')
+          # compile-time benchmarks: <cmake target>|<summary label>
+          benchmarks=(
+            "compilation_nexus_benchmark|cib nexus"
+            "compilation_flow_benchmark|flow dsl"
+          )
 
-          # generate summary with expandable section
-          echo "<details>" >> $GITHUB_STEP_SUMMARY
-          echo "  <summary>Clang front-end: ${FRONT_END_TIME} seconds</summary>" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "  \`\`\`" >> $GITHUB_STEP_SUMMARY
-          cat ${{github.workspace}}/build/compilation_output.log >> $GITHUB_STEP_SUMMARY
-          echo "  \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          for entry in "${benchmarks[@]}"; do
+            IFS='|' read -r target label <<< "$entry"
+            log="${{github.workspace}}/build/${target}.log"
 
-      - name: 'Upload Compilation Trace'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: compilation_trace.json
-          path: ${{github.workspace}}/build/benchmark/CMakeFiles/compilation_benchmark.dir/big_nexus.cpp.json
+            # interesting summary data on stderr
+            cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -t "$target" 2>&1 | tee "$log"
+            front_end_time=$(awk '/Front end/ {print $1}' "$log")
+
+            # generate summary with an expandable section per benchmark
+            {
+              echo "<details>"
+              echo "  <summary>${label} clang front-end: ${front_end_time} seconds</summary>"
+              echo ""
+              echo "  \`\`\`"
+              cat "$log"
+              echo "  \`\`\`"
+              echo "</details>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
 
