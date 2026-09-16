@@ -512,8 +512,7 @@ class field_t : public field_spec_t<Name, T, detail::field_size<Ats...>>,
 
     template <T V>
     using with_less_than =
-        field_t<Name, T, Default, msg::less_than_or_equal_to_t<field_t, V>,
-                Ats...>;
+        field_t<Name, T, Default, msg::less_than_t<field_t, V>, Ats...>;
 
     template <T V>
     using with_less_than_or_equal_to =
