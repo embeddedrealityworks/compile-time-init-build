@@ -152,11 +152,11 @@ struct rel_matcher_t {
 
     [[nodiscard]] constexpr auto describe() const {
         if constexpr (std::integral<typename Field::type>) {
-            return stdx::ct_format<"{} {} 0x{:x}">(Field::name,
-                                                   detail::to_string<RelOp>(),
-                                                   stdx::ct<ExpectedValue>());
+            return stdx::ct_format<"{} {} 0x{:x}">(
+                stdx::constant_name_of_v<Field>, detail::to_string<RelOp>(),
+                stdx::ct<ExpectedValue>());
         } else {
-            return stdx::ct_format<"{} {} {}">(Field::name,
+            return stdx::ct_format<"{} {} {}">(stdx::constant_name_of_v<Field>,
                                                detail::to_string<RelOp>(),
                                                stdx::ct<ExpectedValue>());
         }
@@ -166,12 +166,14 @@ struct rel_matcher_t {
     [[nodiscard]] constexpr auto describe_match(MsgType const &msg) const {
         if constexpr (std::integral<typename Field::type>) {
             return stdx::ct_format<"{} (0x{:x}) {} 0x{:x}">(
-                Field::name, detail::extract_field<Field>(msg),
-                detail::to_string<RelOp>(), stdx::ct<ExpectedValue>());
+                stdx::constant_name_of_v<Field>,
+                detail::extract_field<Field>(msg), detail::to_string<RelOp>(),
+                stdx::ct<ExpectedValue>());
         } else {
             return stdx::ct_format<"{} ({}) {} {}">(
-                Field::name, detail::extract_field<Field>(msg),
-                detail::to_string<RelOp>(), stdx::ct<ExpectedValue>());
+                stdx::constant_name_of_v<Field>,
+                detail::extract_field<Field>(msg), detail::to_string<RelOp>(),
+                stdx::ct<ExpectedValue>());
         }
     }
 
@@ -351,17 +353,20 @@ template <typename Field, auto P> struct pred_matcher_t {
     }
 
     [[nodiscard]] constexpr auto describe() const {
-        return stdx::ct_format<"<predicate>({})">(Field::name);
+        return stdx::ct_format<"<predicate>({})">(
+            stdx::constant_name_of_v<Field>);
     }
 
     template <typename MsgType>
     [[nodiscard]] constexpr auto describe_match(MsgType const &msg) const {
         if constexpr (std::integral<typename Field::type>) {
             return stdx::ct_format<"<predicate>({}(0x{:x}))">(
-                Field::name, detail::extract_field<Field>(msg));
+                stdx::constant_name_of_v<Field>,
+                detail::extract_field<Field>(msg));
         } else {
             return stdx::ct_format<"<predicate>({}({}))">(
-                Field::name, detail::extract_field<Field>(msg));
+                stdx::constant_name_of_v<Field>,
+                detail::extract_field<Field>(msg));
         }
     }
 };

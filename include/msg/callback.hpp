@@ -93,12 +93,6 @@ template <stdx::ct_string Name, typename Msg> struct callback_construct_t {
         return callback<Name, Msg, matcher_t, std::remove_cvref_t<F>>{
             matcher_t{}, std::forward<F>(f)};
     }
-
-  private:
-    template <typename N> struct matching_name {
-        template <typename Field>
-        using fn = std::is_same<N, typename Field::name_t>;
-    };
 };
 
 template <typename Cond, stdx::ct_string Name, typename Msg, match::matcher M,

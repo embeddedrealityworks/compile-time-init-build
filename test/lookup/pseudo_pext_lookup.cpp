@@ -58,6 +58,22 @@ TEMPLATE_TEST_CASE("lookup with non-integral values", "[pseudo pext lookup]",
     CHECK(lookup[91] == 0.41);
 }
 
+TEMPLATE_TEST_CASE("lookup with signed zero keys", "[pseudo pext lookup]",
+                   pseudo_pext_direct, pseudo_pext_indirect_1,
+                   pseudo_pext_indirect_2, pseudo_pext_indirect_3,
+                   pseudo_pext_indirect_4) {
+    constexpr auto lookup =
+        TestType::make(CX_VALUE(lookup::input<float, int, 5>{
+            -1, std::array{lookup::entry{-0.0f, 13}, lookup::entry{1.0f, 42},
+                           lookup::entry{2.0f, 10}, lookup::entry{3.0f, 76},
+                           lookup::entry{4.0f, 25}}}));
+
+    CHECK(lookup[0.0f] == 13);
+    CHECK(lookup[-0.0f] == 13);
+    CHECK(lookup[1.0f] == 42);
+    CHECK(lookup[5.0f] == -1);
+}
+
 TEMPLATE_TEST_CASE("lookup with uint8_t entries", "[pseudo pext lookup]",
                    pseudo_pext_direct, pseudo_pext_indirect_1,
                    pseudo_pext_indirect_2, pseudo_pext_indirect_3,
@@ -133,4 +149,20 @@ TEST_CASE("pbt regression 1", "[pseudo pext lookup]") {
     CHECK(lookup[15] == 0);
     CHECK(lookup[30] == 0);
     CHECK(lookup[31] == 1);
+}
+
+TEST_CASE("lookup respects the maximum search length", "[pseudo pext lookup]") {
+    constexpr auto lookup = pseudo_pext_indirect_2::make(CX_VALUE([] {
+        std::array<lookup::entry<std::uint8_t, int>, 33> entries{};
+        for (auto key = std::uint8_t{}; key < entries.size(); ++key) {
+            entries[key] = {key, key + 1};
+        }
+        return lookup::input{0, entries};
+    }()));
+
+    CHECK(decltype(lookup)::search_len <= 2);
+    for (auto key = std::uint8_t{}; key < 33; ++key) {
+        CHECK(lookup[key] == key + 1);
+    }
+    CHECK(lookup[33] == 0);
 }

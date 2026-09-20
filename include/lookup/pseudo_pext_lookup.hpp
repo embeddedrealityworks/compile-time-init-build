@@ -17,12 +17,20 @@
 #include <iterator>
 #include <limits>
 #include <tuple>
+#include <type_traits>
 
 namespace lookup {
 
 namespace detail {
 constexpr auto as_raw_integral(auto v) {
     static_assert(sizeof(v) <= 8);
+
+    if constexpr (std::is_floating_point_v<decltype(v)>) {
+        // Normalize signed zero so +0.0 and -0.0 have the same key bits.
+        if (v == 0) {
+            v = 0;
+        }
+    }
 
     if constexpr (sizeof(v) == 1) {
         return std::bit_cast<std::uint8_t>(v);
@@ -194,21 +202,19 @@ constexpr auto remove_cheapest_bit(detail::raw_integral_t<T> mask,
     auto cheapest_bit = std::size_t{};
     auto min_num_dups = std::numeric_limits<std::size_t>::max();
 
-    for_each(
-        [&](auto i) {
-            auto btry_mask = bmask;
-            btry_mask.reset(i);
+    bmask.for_each([&](auto i) {
+        auto btry_mask = bmask;
+        btry_mask.reset(i);
 
-            std::array<raw_t, S> try_keys =
-                with_mask(btry_mask.template to<raw_t>(), keys);
+        std::array<raw_t, S> try_keys =
+            with_mask(btry_mask.template to<raw_t>(), keys);
 
-            auto num_dups = count_duplicates(try_keys);
-            if (num_dups < min_num_dups) {
-                min_num_dups = num_dups;
-                cheapest_bit = i;
-            }
-        },
-        bmask);
+        auto num_dups = count_duplicates(try_keys);
+        if (num_dups < min_num_dups) {
+            min_num_dups = num_dups;
+            cheapest_bit = i;
+        }
+    });
 
     bmask.reset(cheapest_bit);
     return bmask.template to<raw_t>();
@@ -245,7 +251,7 @@ constexpr auto calc_pseudo_pext_mask(std::array<entry<T, V>, S> const &pairs,
     while (max_search_len > 1 && std::popcount(mask) > 4) {
         auto try_mask = remove_cheapest_bit(mask, keys);
         auto current_longest_run = count_longest_run(with_mask(try_mask, keys));
-        if (current_longest_run <= max_search_len) {
+        if (current_longest_run < max_search_len) {
             mask = try_mask;
             prev_longest_run = current_longest_run;
         } else {
