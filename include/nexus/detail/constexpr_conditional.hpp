@@ -5,6 +5,7 @@
 #include <nexus/detail/extend.hpp>
 
 #include <stdx/ct_format.hpp>
+#include <stdx/ct_string.hpp>
 #include <stdx/tuple.hpp>
 #include <stdx/tuple_algorithms.hpp>
 #include <stdx/type_traits.hpp>
@@ -33,10 +34,10 @@ struct constexpr_conditional : config_item {
     }
 };
 
-template <stdx::ct_string Name, typename... Ps> struct constexpr_condition {
+namespace s {
+template <auto Name, typename... Ps>
+struct constexpr_condition : stdx::with_shrunk_name<Name> {
     constexpr static auto predicates = stdx::make_tuple(Ps{}...);
-
-    constexpr static auto ct_name = Name;
 
     template <typename... Configs>
     [[nodiscard]] consteval auto operator()(Configs const &...configs) const {
@@ -46,5 +47,9 @@ template <stdx::ct_string Name, typename... Ps> struct constexpr_condition {
 
     explicit constexpr operator bool() const { return (Ps{}() and ...); }
 };
+} // namespace s
+
+template <stdx::ct_string Name, typename... Ps>
+using constexpr_condition = s::constexpr_condition<stdx::shrink<Name>(), Ps...>;
 
 } // namespace cib::detail
